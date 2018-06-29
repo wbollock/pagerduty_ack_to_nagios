@@ -28,6 +28,7 @@ note this will generally need to be run as the nagios user so that it has write 
 
 other important options are
 --nagios_status_file <_file> | -s <_file> (default /var/cache/nagios/status.dat)
+
 --nagios_command_pipe <_file> | -c <_file> (default /var/spool/nagios/cmd/nagios.cmd)
 
 these locations are dependent on your install, so locate them first before running
