@@ -32,8 +32,11 @@ other important options are
     --nagios_command_pipe <_file> | -c <_file> (default /var/spool/nagios/cmd/nagios.cmd)
     --days_back <_days> | -t <_service> (the amount of time in days in the past to look for Nagios incidents - default and minimum value is 1)
 
-these locations are dependent on your install, so locate them first before running
+the file locations are dependent on your install, so locate them first before running
 
-Note: Setting the --days_back parameter is so that we retrieve incidents that were created a limited time in the past. Retrieving all events would be time-prohibitive.
+Note: Setting the --days_back parameter is so that we retrieve incidents that were created a limited time in the past. Retrieving all events would be time-prohibitive. 
+
+> <font COLOR="RED">IMPORTANT: the larger the --days_back / -t parameter, the longer the script will run.  Be sure to check to see how long it runs using your
+desired setting. Set the cron appropriately so that it does not re-run before the prior run is complete. Running every 10 to 30 minutes should be sufficient for most use-cases.</FONT>
 
 The option to limit by the PagerDuty incident number has been removed because this approach made it possible to miss acknowledgements and resolutions. The day_back parameter allows for a better way of limiting past incidents. 
