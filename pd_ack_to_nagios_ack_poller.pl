@@ -39,12 +39,14 @@ use JSON;
 use Data::Dumper;
 use strict;
 use Scalar::Util qw(looks_like_number);
+use File::Temp qw(tempfile);
 
 my(%opts);
 my(@opts)=('debug',
            'nagios_status_file|s=s',
            'nagios_command_pipe|c=s',
            'pagerduty_token|p=s',
+           'pagerduty_token_file|f=s',
            'pagerduty_service|n=s',
            'days_back|t=s',
            'help|h',
@@ -62,6 +64,7 @@ options:
  --nagios_status_file <_file> | -s <_file> (default /var/cache/nagios/status.dat)
  --nagios_command_pipe <_file> | -c <_file> (default /var/spool/nagios/cmd/nagios.cmd)
  --pagerduty_token <_token> | -p <_token>
+ --pagerduty_token_file <_file> | -f <_file> (default /etc/nagios/pd_ack_to_nagios_ack_poller.key)
  --pagerduty_service <_service> | -n <_service> (limit to a comma separated list of service ids)
  --days_back <_days> | -t <_service> (the amount of time in days in the past to look for Nagios incidents - default and minimum value is 1)
  --help | -h (this message)
@@ -74,10 +77,27 @@ $opts{nagios_command_pipe} ||= '/var/spool/nagios/cmd/nagios.cmd';
 $opts{days_back} ||= '1';
 
 die "can't access pipe $opts{nagios_command_pipe}" if(!(-w $opts{nagios_command_pipe}));
-die "--pagerduty_token|-p required" unless($opts{pagerduty_token});
+die "--pagerduty_token|-p or --pagerduty_token_file|-f required" unless($opts{pagerduty_token} || $opts{pagerduty_token_file});
 die "days back must be an integer greater than zero" unless(looks_like_number($opts{days_back}));
 
 my($days_back) = int($opts{days_back});
+
+# create temp file for our auth token - removed when program exits
+my $tmp_fh = new File::Temp( UNLINK => 1 );
+
+if(!defined($opts{pagerduty_token})) {
+  $opts{pagerduty_token_file} ||= '/etc/nagios/pd_ack_to_nagios_ack_poller.key';
+  open(FILE, $opts{pagerduty_token_file}) || die "can't open pagerduty_token_file, and no token has been passed on the command line";
+  die "pagerduty_token_file is empty, and no token has been passed on the command line"
+    if(-z $opts{pagerduty_token_file});
+  $opts{pagerduty_token} = <FILE>;
+  close(FILE);
+  chomp($opts{pagerduty_token});
+
+  # now we need to convert that raw token file into something curl can use with an Authorization Token header
+  # man curl -> -H, --header <header/@file>
+  print $tmp_fh "Authorization: Token token=$opts{pagerduty_token}";
+}
 
 # optionally specify service id(s)
 my($svcparam) = "";
@@ -151,7 +171,7 @@ $offset = 0;
 my($j);
 while ($more eq 'true')
 {
-  $cmd = "curl -s -H 'Authorization: Token token=$opts{pagerduty_token}' " .
+  $cmd = "curl -s -H \@${tmp_fh} " .
       "'https://api.pagerduty.com/incidents?limit=$limit&offset=$offset&fields=incident_number,id" .
       "${svcparam}&statuses%5B%5D=acknowledged&statuses%5B%5D=resolved&since=$dateforquery&sort_by=incident_number:desc" .
       "&include%5B%5D=first_trigger_log_entries'";
@@ -173,7 +193,7 @@ while ($more eq 'true')
       print "\nPD Incident number: $in\n" if($opts{debug});
 
       # retrieve the log entries for the incident
-      $cmd = "curl -s -H 'Authorization: Token token=$opts{pagerduty_token}' ".
+      $cmd = "curl -s -H \@${tmp_fh} ".
           "'https://api.pagerduty.com/incidents/$iid/log_entries?is_overview=true&limit=100'";
       print "PD API Command to get log_entries:\n$cmd\n" if($opts{debug});
       $j = scalar(`$cmd`);
@@ -203,7 +223,7 @@ while ($more eq 'true')
         my($li) = $ls->{log_entries}[$#{$ls->{log_entries}}]{id};
 
         # Get the channel data for this log entry which contains the custom fields
-        $cmd = "curl -s -H 'Authorization: Token token=$opts{pagerduty_token}' " .
+        $cmd = "curl -s -H \@${tmp_fh} " .
             "'https://api.pagerduty.com/log_entries/$li?include%5B%5D=channels'";
         print "PD API Command to get custom fields from log_entries:\n$cmd\n" if($opts{debug});
 
