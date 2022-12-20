@@ -22,7 +22,7 @@ works only with PagerDuty's V2 API token
 
 set up a cron like so:
 
-    * * * * * nagios /usr/local/bin/pd_ack_to_nagios_ack_poller.pl -p [my_pagerduty_token] -t 3
+    * * * * * nagios /usr/local/bin/pd_ack_to_nagios_ack_poller.pl --pagerduty_token_file /etc/pagerduty/pd_token_file -t 3
 
 note this will generally need to be run as the nagios user so that it has write access to the nagios command pipe.
 
@@ -31,6 +31,7 @@ other important options are
     --nagios_status_file <_file> | -s <_file> (default /var/cache/nagios/status.dat)
     --nagios_command_pipe <_file> | -c <_file> (default /var/spool/nagios/cmd/nagios.cmd)
     --days_back <_days> | -t <_service> (the amount of time in days in the past to look for Nagios incidents - default and minimum value is 1)
+    --pagerduty_token_file <_file> | -f <_file> (default /etc/nagios/pd_ack_to_nagios_ack_poller.key)
 
 the file locations are dependent on your install, so locate them first before running
 
